@@ -3,11 +3,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from database import init_db
 from routers.dispute import router
 from middleware.logging import SecurityTrackingMiddleware
-from core.error import register_exception_handlers  # Imported core error tracking
+from core.error import register_exception_handlers 
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 
 app = FastAPI(title="Dispute Intake Core Engine", version="1.0.0")
 
-# Register global custom business & validation exception handlers
 register_exception_handlers(app)
 
 app.add_middleware(
