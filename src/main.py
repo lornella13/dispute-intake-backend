@@ -1,7 +1,12 @@
 import sys
 import os
 
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+BACKEND_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+SRC_DIR = os.path.join(BACKEND_ROOT, "src")
+if BACKEND_ROOT not in sys.path:
+    sys.path.append(BACKEND_ROOT)
+if SRC_DIR not in sys.path:
+    sys.path.append(SRC_DIR)
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
