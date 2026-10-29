@@ -1,0 +1,56 @@
+```mermaid
+flowchart TD
+    subgraph Frontend["Frontend (React + TypeScript + Vite)"]
+        Login[Login Screen]
+        Dashboard[Complaint Dashboard]
+        Form[Complaint Create Form]
+        Queue[Complaint Queue]
+        Detail[Complaint Detail]
+    end
+
+    subgraph Backend["Backend (FastAPI)"]
+        Router[Route Layer<br/>src/routers/dispute.py]
+        Controller[Controller Layer<br/>src/controllers/dispute.py]
+        Auth[Auth Service<br/>src/services/auth.py]
+        DisputeSvc[Dispute Workflow Service<br/>src/services/dispute.py]
+        HubMock[Local Hub Mock<br/>POST /api/v1/customer-disputes]
+        Middleware[Security Tracking Middleware<br/>src/middleware/logging.py]
+    end
+
+    subgraph Storage["Storage (SQLite)"]
+        Complaints[complaints table]
+        AuditLogs[audit_logs table]
+    end
+
+    Login -->|POST /auth/login| Router
+    Dashboard -->|GET /complaints| Router
+    Form -->|POST /complaints/validate| Router
+    Form -->|POST /complaints| Router
+    Queue -->|GET /complaints| Router
+    Detail -->|GET /complaints/{id}| Router
+
+    Router --> Middleware
+    Middleware -->|X-Request-ID| Router
+
+    Router --> Controller
+    Controller --> Auth
+    Controller --> DisputeSvc
+
+    Auth -->|PBKDF2 verify + JWT sign| Backend
+    DisputeSvc --> HubMock
+    DisputeSvc -->|Validate| DisputeSvc
+
+    DisputeSvc -->|INSERT| Complaints
+    DisputeSvc -->|INSERT| AuditLogs
+
+    classDef frontend fill:#e1f5fe,stroke:#01579b,stroke-width:2px
+    classDef backend fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    classDef storage fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
+
+    class Login,Dashboard,Form,Queue,Detail frontend
+    class Router,Controller,Auth,DisputeSvc,HubMock,Middleware backend
+    class Complaints,AuditLogs storage
+```
+
+Save this diagram as `architecture.mmd` in the backend root. It can be rendered
+by any Mermaid-compatible viewer (GitHub, GitLab, Mermaid Live Editor, etc.).

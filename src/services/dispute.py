@@ -1,11 +1,18 @@
+import re
 import uuid
 import datetime
 import sqlite3
+from decimal import Decimal, InvalidOperation
 from typing import List
 from models.dispute import ComplaintModel, AuditLogModel
 from schemas.dispute import ComplaintCreateSchema, AuthenticatedUserSchema
 from repositories.dispute import DisputeRepository, AuditRepository
 from core.error import ValidationBusinessError, NotFoundError
+
+TRANSFER_REFERENCE_PATTERN = re.compile(r"^TXN-\d{6}$")
+ALLOWED_CATEGORIES = {"debited_not_credited", "wrong_recipient", "duplicate", "scam"}
+EVIDENCE_REQUIRED_CATEGORIES = {"wrong_recipient", "scam"}
+
 
 class DisputeWorkflowService:
     def __init__(self, db: sqlite3.Connection):
@@ -19,13 +26,55 @@ class DisputeWorkflowService:
             return {"status": "REJECTED", "claim_id": None, "message": "Scheme violation: Exceeded bounds."}
         return {"status": "REGISTERED", "claim_id": f"CLM-{uuid.uuid4().hex[:8].upper()}", "message": "Success"}
 
+    @staticmethod
+    def validate_complaint_payload(payload: ComplaintCreateSchema) -> None:
+        """Validate complaint payload using the same rules as complaint creation.
+
+        Raises ValidationBusinessError on the first invalid field found.
+        """
+        # Validate transfer reference format: ^TXN-\d{6}$
+        if not TRANSFER_REFERENCE_PATTERN.match(payload.transfer_reference):
+            raise ValidationBusinessError(
+                message="Transfer reference must match format TXN-XXXXXX (exactly 6 digits).",
+                error_code="VALIDATION_FAILED",
+            )
+
+        # Validate amount is a non-empty, positive decimal string
+        if not payload.amount or not payload.amount.strip():
+            raise ValidationBusinessError(
+                message="Amount is required and must be a positive decimal string.",
+                error_code="VALIDATION_FAILED",
+            )
+        try:
+            amount = Decimal(payload.amount)
+        except InvalidOperation:
+            raise ValidationBusinessError(
+                message="Amount must be a valid decimal string (e.g. '15000' or '15000.50').",
+                error_code="VALIDATION_FAILED",
+            )
+        if amount <= 0:
+            raise ValidationBusinessError(
+                message="Amount must be greater than zero.",
+                error_code="VALIDATION_FAILED",
+            )
+
+        # Validate category is one of the allowed values
+        if payload.category not in ALLOWED_CATEGORIES:
+            raise ValidationBusinessError(
+                message=f"Invalid category '{payload.category}'. Must be one of: {', '.join(sorted(ALLOWED_CATEGORIES))}.",
+                error_code="VALIDATION_FAILED",
+            )
+
+        # Validate evidence is required for wrong_recipient and scam
+        if payload.category in EVIDENCE_REQUIRED_CATEGORIES and not payload.evidence:
+            raise ValidationBusinessError(
+                message=f"Category '{payload.category}' requires evidence.",
+                error_code="VALIDATION_FAILED",
+            )
+
     def file_new_complaint(self, payload: ComplaintCreateSchema, user: AuthenticatedUserSchema, request_id: str) -> ComplaintModel:
         
-        if payload.category in ["wrong_recipient", "scam"] and not payload.evidence:
-            raise ValidationBusinessError(
-                message=f"Category '{payload.category}' requires evidence files.",
-                error_code="VALIDATION_FAILED"
-            )
+        self.validate_complaint_payload(payload)
 
         hub_response = self.mock_external_hub_call(payload.transfer_reference)
         complaint_id = f"CMP-{uuid.uuid4().hex[:6].upper()}"

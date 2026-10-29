@@ -33,6 +33,21 @@ class ComplaintSuccessEnvelope(BaseModel):
     hub_claim_id: Optional[str] = None
     request_id: str
 
+
+class ComplaintValidationResponse(BaseModel):
+    valid: bool
+    message: str
+
+
+class CustomerDisputeRequestSchema(BaseModel):
+    transfer_reference: str
+
+
+class CustomerDisputeResponseSchema(BaseModel):
+    status: str
+    claim_id: Optional[str] = None
+    message: str
+
 class AuthenticatedUserSchema(BaseModel):
     username: str
     bank: str

@@ -9,6 +9,9 @@ from schemas.dispute import (
     ComplaintCreateSchema,
     ComplaintResponseSchema,
     ComplaintSuccessEnvelope,
+    ComplaintValidationResponse,
+    CustomerDisputeRequestSchema,
+    CustomerDisputeResponseSchema,
     AuthenticatedUserSchema,
     LoginRequestSchema,
     LoginResponseSchema,
@@ -16,6 +19,7 @@ from schemas.dispute import (
 
 from controllers.dispute import DisputeController
 from services.auth import IdentityService
+from services.dispute import DisputeWorkflowService
 
 router = APIRouter(tags=["Complaints Handling Operations"])
 
@@ -31,6 +35,14 @@ def get_db():
         yield conn
     finally:
         conn.close()
+
+
+@router.post("/complaints/validate", response_model=ComplaintValidationResponse)
+def validate_complaint(
+    payload: ComplaintCreateSchema,
+    user: AuthenticatedUserSchema = Depends(resolve_security_session),
+):
+    return DisputeController.validate_complaint(payload, user)
 
 
 @router.post("/complaints", response_model=ComplaintSuccessEnvelope)
@@ -80,3 +92,14 @@ def health_check():
 def login_operator(payload: LoginRequestSchema):
     
     return IdentityService.authenticate_operator(payload)
+
+
+@router.post("/api/v1/customer-disputes", response_model=CustomerDisputeResponseSchema, tags=["Dispute Hub Mock"])
+def register_customer_dispute(payload: CustomerDisputeRequestSchema):
+    """Local mock of the shared dispute service registration endpoint.
+
+    Accepts or rejects registration based on the transfer reference.
+    References ending in '999' are rejected; all others are accepted.
+    No complaint or audit records are created here.
+    """
+    return DisputeWorkflowService.mock_external_hub_call(payload.transfer_reference)
