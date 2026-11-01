@@ -1,6 +1,5 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from src.routers.dispute import routers as dispute_router 
 
 app = FastAPI(title="Dispute Intake Backend")
 
@@ -13,8 +12,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-app.include_router(dispute_router, prefix="/api")
 
 @app.get("/")
 def read_root():
