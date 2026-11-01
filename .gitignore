@@ -5,3 +5,13 @@ __pycache__/
 .venv/
 *.db
 SUBMISSION_CHECKLIST.md
+# Environment files (Prevents leaking API keys and secrets)
+.env.local
+.env.*
+!.env.example
+
+# Cache directories and build artifacts
+.cache/
+*.cache
+.sass-cache/
+.eslintcache
